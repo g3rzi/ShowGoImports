@@ -10,10 +10,22 @@ import (
 )
 
 func main() {
+	var directoryFlag string
+	//flag.StringVar(&directoryFlag, "dir", "", "Specify the Go project directory")
+	//flag.Parse()
+
+	directoryFlag = "C:\\Users\\eviatar\\go\\src\\mymy"
+
+	if _, err := os.Stat(directoryFlag); os.IsNotExist(err) {
+		fmt.Println("[*] No directory was specified, exiting.")
+		os.Exit(1)
+	}
+
 	var files []string
 
 	imports := make(map[string]bool)
-	root := "C:\\Users\\eviatar\\go\\src\\myproj"
+
+	root := directoryFlag
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) != ".go" {
 			return nil
@@ -107,6 +119,8 @@ func main() {
 	}
 
 	fmt.Println("[*] Done")
-
+	for importFromFile := range imports {
+		fmt.Printf("%s\n", importFromFile)
+	}
 
 }
