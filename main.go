@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -9,12 +10,14 @@ import (
 	"strings"
 )
 
+type ImportMap map[string]bool
+
 func main() {
 	var directoryFlag string
-	//flag.StringVar(&directoryFlag, "dir", "", "Specify the Go project directory")
-	//flag.Parse()
+	flag.StringVar(&directoryFlag, "dir", "d", "Specify the Go project directory")
+	flag.Parse()
 
-	directoryFlag = "C:\\Users\\eviatar\\go\\src\\mymy"
+	//directoryFlag = "C:\\Users\\eviatar\\go\\src\\mymy"
 
 	if _, err := os.Stat(directoryFlag); os.IsNotExist(err) {
 		fmt.Println("[*] No directory was specified, exiting.")
@@ -23,7 +26,7 @@ func main() {
 
 	var files []string
 
-	imports := make(map[string]bool)
+	imports := make(ImportMap)
 
 	root := directoryFlag
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -48,24 +51,23 @@ func main() {
 		reader := bufio.NewReader(file)
 
 		haveMultipleImports := false
+		weirdImportSyntax := false
 		endOfImports := false
 		var myImport string
 
 		for {
-
-			if endOfImports {
-				break
-			}
-
 			line, _, err := reader.ReadLine()
 
 			if err == io.EOF {
 				break
 			}
 
+			if endOfImports {
+				break
+			}
+
 			trimmedLine := strings.Replace(string(line), " ", "", -1)
 			trimmedLine = strings.Replace(string(trimmedLine), "\t", "", -1)
-
 
 			if haveMultipleImports {
 
@@ -85,9 +87,16 @@ func main() {
 				}
 
 
-			} else {
+			} else if weirdImportSyntax {
+				if strings.HasPrefix(trimmedLine, "(") {
+
+				}
+
+			}else {
 				if strings.HasPrefix(trimmedLine, "import"){
 					if strings.HasPrefix(trimmedLine, "import(") { // at least 1 import
+						addImportFromMultipleImportType(&haveMultipleImports, trimmedLine, &imports)
+/*
 						haveMultipleImports = true
 						myImport = strings.Replace(string(trimmedLine), "import(", "", -1)
 						if strings.HasSuffix(trimmedLine, ")") { // is exact 1 import
@@ -95,7 +104,7 @@ func main() {
 							if _, ok := imports[myImport]; !ok {
 								imports[myImport] = true
 							}
-							break
+							haveMultipleImports = false
 						} else {
 							if myImport != "" {
 								if _, ok := imports[myImport]; !ok {
@@ -103,14 +112,16 @@ func main() {
 								}
 							}
 						}
-
-					} else { //only 1 import
+*/
+					} else if strings.HasPrefix(trimmedLine, "import\"") { //only 1 import
 						myImport = strings.Replace(string(trimmedLine), "import", "", -1)
 						if _, ok := imports[myImport]; !ok {
 							imports[myImport] = true
 						}
-						break
+					} else {
+						weirdImportSyntax = true
 					}
+
 				}
 			}
 
@@ -118,9 +129,27 @@ func main() {
 		}
 	}
 
-	fmt.Println("[*] Done")
+	//fmt.Println("[*] Done")
 	for importFromFile := range imports {
 		fmt.Printf("%s\n", importFromFile)
 	}
 
+}
+
+func addImportFromMultipleImportType(haveMultipleImports *bool, trimmedLine string, imports *ImportMap) {
+	*haveMultipleImports = true
+	myImport := strings.Replace(string(trimmedLine), "import(", "", -1)
+	if strings.HasSuffix(trimmedLine, ")") { // is exact 1 import
+		myImport = strings.Replace(myImport, ")", "", -1)
+		if _, ok := (*imports)[myImport]; !ok {
+			(*imports)[myImport] = true
+		}
+		*haveMultipleImports = false
+	} else {
+		if myImport != "" {
+			if _, ok := (*imports)[myImport]; !ok {
+				(*imports)[myImport] = true
+			}
+		}
+	}
 }
